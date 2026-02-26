@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | QrX</title>
+    <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1">
+    <link rel="stylesheet" href="/src/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0F172A; color: #F8FAFC; }
+        .card { background-color: #1E293B; border: 1px solid #334155; border-radius: 0.75rem; }
+        .input-dark { background-color: #0F172A; border: 1px solid #334155; color: #F8FAFC; transition: border-color 0.2s; }
+        .input-dark:focus { outline: none; border-color: #F97316; }
+        .badge-green { color: #4ADE80; }
+        .badge-red { color: #F87171; }
+        .logo-btn.active { border-color: #F97316; background-color: rgba(249, 115, 22, 0.1); }
+        .logo-btn img { filter: drop-shadow(0 0 2px rgba(0,0,0,0.1)); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <!-- Top Nav -->
+    <nav class="border-b border-slate-800 bg-[#0F172A] px-6 py-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2 text-[#F97316] font-bold text-lg">
+                <img src="https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1" alt="QrX Logo" class="w-10 h-10 rounded-md object-cover" onerror="this.src='https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1'; this.onerror=null;">
+            </div>
+            <div class="flex items-center gap-6 text-sm text-slate-300">
+                <div class="flex items-center gap-2">
+                    <i class="ph ph-user"></i> Meu QR Code
+                </div>
+                <button onclick="logout()" class="flex items-center gap-2 text-red-400 hover:text-red-300 transition">
+                    <i class="ph ph-sign-out"></i> Sair
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 max-w-5xl mx-auto w-full p-6 mt-8">
+        <div id="loading" class="text-center py-20">
+            <i class="ph ph-spinner animate-spin text-4xl text-[#F97316] mb-4"></i>
+            <p class="text-slate-400">Carregando seu painel...</p>
+        </div>
+
+        <!-- List View -->
+        <div id="list-view" class="hidden space-y-6">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-white">Meus Links e QR Codes</h1>
+                    <p class="text-slate-400 text-sm">Gerencie seus redirecionamentos e acompanhe os acessos.</p>
+                </div>
+                <div class="flex flex-col items-end gap-2">
+                    <div class="flex items-center gap-3">
+                        <div class="text-right">
+                            <div class="text-xs text-slate-500 uppercase font-bold tracking-wider">Uso da Conta</div>
+                            <div class="text-sm text-white"><span id="usage-count">0</span> / <span id="usage-limit">10</span> links</div>
+                        </div>
+                        <button onclick="openCreateModal()" id="btn-open-create" class="bg-[#F97316] hover:bg-[#EA580C] text-white rounded-lg py-2.5 px-5 font-semibold transition flex items-center gap-2">
+                            <i class="ph ph-plus font-bold"></i> Criar Novo Link
+                        </button>
+                    </div>
+                    <a href="https://wa.me/5562994581066?text=Ativar+mais+QrX" target="_blank" class="text-xs text-[#F97316] hover:underline flex items-center gap-1">
+                        <i class="ph ph-shopping-cart"></i> Comprar mais créditos
+                    </a>
+                </div>
+            </div>
+
+            <!-- User Dashboard Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="card p-6">
+                    <h3 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                        <i class="ph ph-activity text-[#F97316]"></i>
+                        Desempenho dos Meus Links
+                    </h3>
+                    <div id="user-scans-chart" class="h-64"></div>
+                </div>
+                <div class="card p-6 flex flex-col justify-center items-center text-center">
+                    <div class="w-16 h-16 bg-[#F97316]/10 text-[#F97316] rounded-full flex items-center justify-center mb-4">
+                        <i class="ph ph-trend-up text-3xl"></i>
+                    </div>
+                    <h3 class="text-slate-400 text-sm uppercase tracking-wider font-bold mb-2">Total de Visualizações</h3>
+                    <div class="text-5xl font-bold text-white" id="user-total-scans">0</div>
+                </div>
+            </div>
+            
+            <div class="card overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-700 text-slate-400">
+                                <th class="p-4 font-medium w-10">
+                                    <input type="checkbox" id="select-all-user" class="rounded border-slate-600 bg-slate-800 text-[#F97316] focus:ring-[#F97316]">
+                                </th>
+                                <th class="p-4 font-medium">Nome / Título</th>
+                                <th class="p-4 font-medium">Link Curto</th>
+                                <th class="p-4 font-medium">Destino</th>
+                                <th class="p-4 font-medium">Scans</th>
+                                <th class="p-4 font-medium">Status</th>
+                                <th class="p-4 font-medium">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-codes-list" class="divide-y divide-slate-700/50">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="empty-state" class="hidden p-8 text-center text-slate-400">
+                    <i class="ph ph-link-break text-4xl mb-2 text-slate-500"></i>
+                    <p>Você ainda não tem nenhum link.</p>
+                    <button onclick="openCreateModal()" class="text-[#F97316] hover:underline mt-2">Criar meu primeiro link</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit View -->
+        <div id="edit-view" class="hidden space-y-8">
+            <div class="mb-2">
+                <button onclick="showListView()" class="text-slate-400 hover:text-white flex items-center gap-2 transition bg-slate-800 px-3 py-1.5 rounded-lg w-fit">
+                    <i class="ph ph-arrow-left"></i> Voltar para meus links
+                </button>
+            </div>
+            
+            <!-- Header -->
+            <div class="text-center mb-10">
+                <h1 class="text-3xl font-bold text-white mb-2">Editar QR Code</h1>
+                <p class="text-slate-400">Gerencie o link de redirecionamento e a aparência</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- QR Code Card -->
+                <div class="card p-6 flex flex-col items-center">
+                    <div class="w-full flex items-center gap-2 text-sm font-medium text-slate-300 mb-6">
+                        <i class="ph ph-qr-code text-[#F97316]"></i> Seu QR Code
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-xl mb-6">
+                        <canvas id="qr-canvas" class="w-48 h-48"></canvas>
+                    </div>
+
+                    <div class="w-full bg-[#0F172A] rounded-lg p-4 text-center border border-slate-700 mb-4">
+                        <div class="text-xs text-slate-400 mb-1">Link Encurtado:</div>
+                        <div class="flex items-center justify-center gap-2">
+                            <a href="#" id="short-url-link" target="_blank" class="font-mono font-bold text-[#F97316] text-sm hover:underline truncate max-w-[200px]"></a>
+                            <button onclick="copyShortUrl()" class="text-slate-400 hover:text-white" title="Copiar Link"><i class="ph ph-copy"></i></button>
+                        </div>
+                        <div class="text-xs text-slate-500 mt-2">Código: <span id="qr-code-display" class="font-mono text-white">-----</span></div>
+                    </div>
+                    
+                    <button id="btn-download-qr" class="w-full bg-slate-800 hover:bg-slate-700 text-white rounded-lg py-2.5 font-semibold transition flex items-center justify-center gap-2 border border-slate-700">
+                        <i class="ph ph-download-simple"></i> Baixar Imagem
+                    </button>
+                </div>
+
+                <!-- Stats Card -->
+                <div class="card p-6 flex flex-col">
+                    <div class="w-full flex items-center gap-2 text-sm font-medium text-slate-300 mb-6">
+                        <i class="ph ph-trend-up text-[#F97316]"></i> Estatísticas
+                    </div>
+
+                    <div class="bg-[#0F172A] rounded-lg p-5 border border-slate-700 flex justify-between items-center mb-4">
+                        <span class="text-slate-400 text-sm">Total de Scans</span>
+                        <span class="text-2xl font-bold text-[#F97316]" id="scan-count">0</span>
+                    </div>
+
+                    <div class="bg-[#0F172A] rounded-lg p-5 border border-slate-700 flex justify-between items-center">
+                        <span class="text-slate-400 text-sm">Status</span>
+                        <div id="status-badge" class="flex items-center gap-1 text-sm font-medium badge-green">
+                            <i class="ph ph-check-circle"></i> Ativo
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Card -->
+            <div class="card p-6">
+                <div class="w-full flex items-center gap-2 text-sm font-medium text-slate-300 mb-6">
+                    <i class="ph ph-link text-[#F97316]"></i> Configurar URL de Redirecionamento
+                </div>
+
+                <form id="url-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">Título / Nome</label>
+                        <input type="text" id="target-title" class="input-dark w-full rounded-lg px-4 py-3 text-sm" placeholder="Ex: Meu Site">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">URL de Destino</label>
+                        <input type="url" id="target-url" required class="input-dark w-full rounded-lg px-4 py-3 text-sm" placeholder="https://seusite.com.br">
+                    </div>
+                    
+                    <div id="current-url-display" class="hidden bg-[#0F172A] border border-slate-700 rounded-lg p-3 text-sm">
+                        <span class="text-slate-400">URL atual:</span> 
+                        <a href="#" id="current-url-link" target="_blank" class="text-[#F97316] hover:underline ml-1 truncate inline-block align-bottom max-w-[80%]"></a>
+                    </div>
+
+                    <button type="submit" id="btn-save" class="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-lg py-3 font-semibold transition mt-2">
+                        Salvar URL
+                    </button>
+                    <p id="save-msg" class="text-sm text-center hidden mt-2"></p>
+                </form>
+            </div>
+
+            <!-- Customization Card -->
+            <div class="card p-6">
+                <div class="w-full flex items-center gap-2 text-sm font-medium text-slate-300 mb-6">
+                    <i class="ph ph-palette text-[#F97316]"></i> Personalizar Aparência
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">Cor do QR Code</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color" id="qr-color-dark" value="#000000" class="w-12 h-12 rounded cursor-pointer bg-transparent border-0 p-0">
+                            <span class="text-sm text-slate-300" id="qr-color-dark-hex">#000000</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">Cor de Fundo</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color" id="qr-color-light" value="#ffffff" class="w-12 h-12 rounded cursor-pointer bg-transparent border-0 p-0">
+                            <span class="text-sm text-slate-300" id="qr-color-light-hex">#ffffff</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <label class="block text-sm text-slate-400 mb-4">Adicionar Logomarca no Centro</label>
+                    <div class="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4" id="logo-library">
+                        <button onclick="setLogo('https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1')" class="logo-btn active border-2 border-slate-700 rounded-lg p-2 flex items-center justify-center hover:border-[#F97316] transition bg-white" title="Logo Padrão (X)">
+                            <img src="https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1" alt="Logo Padrão" class="w-6 h-6 object-contain">
+                        </button>
+                        <!-- Logos will be injected here -->
+                    </div>
+                    
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs text-slate-500">Ou use uma URL de imagem personalizada:</label>
+                        <div class="flex gap-2">
+                            <input type="url" id="custom-logo-url" class="input-dark flex-1 rounded-lg px-4 py-2 text-sm" placeholder="https://exemplo.com/logo.png">
+                            <button onclick="applyCustomLogo()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm transition">Aplicar</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="text-xs text-slate-500">Ou faça upload de uma imagem:</label>
+                        <button onclick="document.getElementById('single-logo-upload').click()" class="w-full bg-slate-800 hover:bg-slate-700 text-white rounded-lg py-3 text-sm border border-dashed border-slate-600 flex items-center justify-center gap-2 transition mt-1">
+                            <i class="ph ph-upload-simple"></i> Fazer Upload de Logo
+                        </button>
+                        <input type="file" id="single-logo-upload" class="hidden" accept="image/*">
+                    </div>
+                </div>
+                
+                <p class="text-xs text-slate-500 mt-6"><i class="ph ph-info"></i> A personalização afeta apenas a imagem baixada. Certifique-se de manter um bom contraste para que o QR Code possa ser lido por câmeras.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create Modal -->
+    <div id="create-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-[#1E293B] border border-slate-700 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative">
+            <button onclick="closeCreateModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition">
+                <i class="ph ph-x text-xl"></i>
+            </button>
+            <div class="p-6 border-b border-slate-700">
+                <h3 class="text-xl font-bold text-white">Criar Novo Link / QR Code</h3>
+            </div>
+            <form id="create-form" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Logo Padrão</label>
+                    <div class="flex items-center gap-2 bg-[#0F172A] border border-slate-700 rounded-lg p-2">
+                        <button type="button" onclick="setCreateLogo('https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1')" class="create-logo-btn active bg-slate-700 ring-2 ring-[#F97316] p-1 rounded hover:bg-slate-700 transition" title="Logo X">
+                            <img src="https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1" class="w-8 h-8 object-contain">
+                        </button>
+                        <button type="button" onclick="setCreateLogo('https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg')" class="create-logo-btn p-1 rounded hover:bg-slate-700 transition" title="Google">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" class="w-8 h-8 object-contain">
+                        </button>
+                        <button type="button" onclick="document.getElementById('create-logo-upload').click()" class="p-1 rounded hover:bg-slate-700 transition text-slate-400 w-10 h-10 flex items-center justify-center" title="Upload Customizado">
+                            <i class="ph ph-upload-simple text-xl"></i>
+                        </button>
+                        <input type="file" id="create-logo-upload" class="hidden" accept="image/*" onchange="handleCreateLogoUpload(event)">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Título / Nome (Opcional)</label>
+                    <input type="text" id="new-title" class="input-dark w-full rounded-lg px-4 py-3 text-sm" placeholder="Ex: Meu Site, Cardápio, etc.">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">URL de Destino (Obrigatório)</label>
+                    <input type="url" id="new-target-url" required class="input-dark w-full rounded-lg px-4 py-3 text-sm" placeholder="https://seusite.com.br">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Código Personalizado (Opcional)</label>
+                    <input type="text" id="new-custom-code" class="input-dark w-full rounded-lg px-4 py-3 text-sm font-mono" placeholder="ex: minhamarca" pattern="[a-zA-Z0-9-_]+" title="Apenas letras, números, hífens e underlines">
+                    <p class="text-xs text-slate-500 mt-1">Deixe em branco para gerar um código aleatório.</p>
+                </div>
+                <button type="submit" id="btn-create-submit" class="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-lg py-3 font-semibold transition mt-2">
+                    Criar Link
+                </button>
+                <p id="create-error" class="text-red-400 text-sm text-center hidden mt-2"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bulk Actions Bar -->
+    <div id="bulk-actions-bar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1E293B] border border-slate-700 rounded-2xl shadow-2xl p-4 flex items-center gap-6 z-50">
+        <div class="text-sm text-slate-300">
+            <span id="selected-count-user" class="font-bold text-[#F97316]">0</span> selecionados
+        </div>
+        <div class="h-6 w-px bg-slate-700"></div>
+        <div class="flex items-center gap-3">
+            <button onclick="triggerBulkLogoUpload()" class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-slate-700 transition">
+                <i class="ph ph-image"></i> Alterar Logo em Massa
+            </button>
+            <button onclick="clearSelection()" class="text-slate-400 hover:text-white text-sm">Cancelar</button>
+        </div>
+    </div>
+    <input type="file" id="bulk-logo-upload" class="hidden" accept="image/*">
+
+    <script src="/app.js"></script>
+    <script>
+        const DEFAULT_LOGO_URL = 'https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1';
+        let currentQrId = null;
+        let currentQrCode = null;
+        let currentUser = null;
+        let userCodes = [];
+        let currentLogoUrl = '';
+        let createLogoUrl = 'https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1';
+        let userScansChart = null;
+
+        function setCreateLogo(url) {
+            createLogoUrl = url;
+            document.querySelectorAll('.create-logo-btn').forEach(btn => {
+                const img = btn.querySelector('img');
+                if (img && img.src === url) {
+                    btn.classList.add('bg-slate-700', 'ring-2', 'ring-[#F97316]');
+                } else {
+                    btn.classList.remove('bg-slate-700', 'ring-2', 'ring-[#F97316]');
+                }
+            });
+        }
+
+        function handleCreateLogoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => setCreateLogo(e.target.result);
+            reader.readAsDataURL(file);
+        }
+
+        const SOCIAL_LOGOS = [
+            { name: 'Google', url: 'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg' },
+            { name: 'YouTube', url: 'https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg' },
+            { name: 'Instagram', url: 'https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg' },
+            { name: 'Facebook', url: 'https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png' },
+            { name: 'WhatsApp', url: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg' },
+            { name: 'TikTok', url: 'https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg' }
+        ];
+
+        async function initDashboard() {
+            currentUser = await getCurrentUser();
+            if (!currentUser) {
+                window.location.href = '/index.html';
+                return;
+            }
+
+            if (currentUser.profile?.role === 'admin') {
+                window.location.href = '/admin.html';
+                return;
+            }
+
+            // Setup listeners
+            document.getElementById('select-all-user').addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                document.querySelectorAll('.user-qr-checkbox').forEach(cb => {
+                    cb.checked = isChecked;
+                });
+                updateBulkActionsBar();
+            });
+
+            document.getElementById('bulk-logo-upload').addEventListener('change', (e) => handleLogoUpload(e, true));
+            document.getElementById('single-logo-upload').addEventListener('change', (e) => handleLogoUpload(e, false));
+
+            initLogoLibrary();
+            await loadUserCodes();
+        }
+
+        function initLogoLibrary() {
+            const container = document.getElementById('logo-library');
+            // Keep the "Default Logo" button
+            const defaultLogoBtn = container.querySelector('button');
+            container.innerHTML = '';
+            container.appendChild(defaultLogoBtn);
+
+            SOCIAL_LOGOS.forEach(logo => {
+                const btn = document.createElement('button');
+                btn.className = "logo-btn border-2 border-slate-700 rounded-lg p-2 flex items-center justify-center hover:border-[#F97316] transition bg-white";
+                btn.title = logo.name;
+                btn.onclick = () => setLogo(logo.url);
+                btn.innerHTML = `<img src="${logo.url}" alt="${logo.name}" class="w-6 h-6 object-contain">`;
+                container.appendChild(btn);
+            });
+        }
+
+        function setLogo(url) {
+            currentLogoUrl = url;
+            document.getElementById('custom-logo-url').value = url;
+            
+            // Update active state in UI
+            document.querySelectorAll('.logo-btn').forEach(btn => {
+                btn.classList.remove('border-[#F97316]', 'active');
+                btn.classList.add('border-slate-700');
+                
+                const img = btn.querySelector('img');
+                if (img && (img.src === url || img.getAttribute('src') === url)) {
+                    btn.classList.add('border-[#F97316]', 'active');
+                    btn.classList.remove('border-slate-700');
+                }
+            });
+            
+            renderQr();
+        }
+
+        function applyCustomLogo() {
+            const url = document.getElementById('custom-logo-url').value.trim();
+            setLogo(url);
+        }
+
+        async function loadUserCodes() {
+            if (!window.supabaseClient) return;
+            
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('list-view').classList.add('hidden');
+            document.getElementById('edit-view').classList.add('hidden');
+
+            // Get user profile for limits
+            const { data: profile } = await window.supabaseClient
+                .from('profiles')
+                .select('generated_count, max_links')
+                .eq('id', currentUser.id)
+                .single();
+            
+            const generatedCount = profile?.generated_count || 0;
+            const maxLinks = profile?.max_links || 10;
+
+            document.getElementById('usage-count').textContent = generatedCount;
+            document.getElementById('usage-limit').textContent = maxLinks;
+
+            const { data: codes, error } = await window.supabaseClient
+                .from('qrcodes')
+                .select('*')
+                .eq('owner_id', currentUser.id)
+                .order('created_at', { ascending: false });
+
+            document.getElementById('loading').classList.add('hidden');
+
+            if (error) {
+                console.error(error);
+                return;
+            }
+
+            userCodes = codes || [];
+            renderUserCodesTable();
+            document.getElementById('list-view').classList.remove('hidden');
+        }
+
+        function renderUserCodesTable() {
+            const tbody = document.getElementById('user-codes-list');
+            const emptyState = document.getElementById('empty-state');
+            tbody.innerHTML = '';
+
+            if (userCodes.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            userCodes.forEach(qr => {
+                const shortUrl = `https://jpvdo.netlify.app/ativar/${qr.code}`;
+                const targetUrl = qr.target_url ? `<a href="${qr.target_url}" target="_blank" class="text-[#F97316] hover:underline truncate max-w-[200px] block">${qr.target_url}</a>` : '<span class="text-slate-500">Não configurado</span>';
+                const title = qr.title || `<span class="text-slate-500 italic">Sem título</span>`;
+                
+                let badgeClass = 'badge-blue';
+                let statusText = 'Disponível';
+                if (qr.status === 'ativo' || qr.status === 'reivindicado') { badgeClass = 'text-green-400 bg-green-400/10'; statusText = 'Ativo'; }
+                if (qr.status === 'inativo') { badgeClass = 'text-red-400 bg-red-400/10'; statusText = 'Inativo'; }
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/30 transition";
+                tr.innerHTML = `
+                    <td class="p-4">
+                        <input type="checkbox" value="${qr.id}" class="user-qr-checkbox rounded border-slate-600 bg-slate-800 text-[#F97316] focus:ring-[#F97316]">
+                    </td>
+                    <td class="p-4">
+                        <div class="font-bold text-white">${title}</div>
+                        <div class="text-xs text-slate-500 font-mono">${qr.code}</div>
+                    </td>
+                    <td class="p-4">
+                        <div class="font-mono text-slate-300 flex items-center gap-2">
+                            ${qr.code}
+                            <button onclick="navigator.clipboard.writeText('${shortUrl}'); window.qrx.modal.alert('Sucesso', 'Link copiado!', 'success')" class="text-slate-500 hover:text-[#F97316]" title="Copiar Link">
+                                <i class="ph ph-copy"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td class="p-4">${targetUrl}</td>
+                    <td class="p-4 flex items-center gap-1"><i class="ph ph-trend-up text-slate-500"></i> ${qr.scan_count || 0}</td>
+                    <td class="p-4">
+                        <span class="px-2.5 py-1 rounded-md text-xs font-medium ${badgeClass}">${statusText}</span>
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center gap-2">
+                            <button onclick="openEditView('${qr.id}')" class="bg-[#F97316]/10 text-[#F97316] hover:bg-[#F97316]/20 px-3 py-1.5 rounded text-xs flex items-center gap-1 border border-[#F97316]/20 transition">
+                                <i class="ph ph-pencil-simple"></i> Editar
+                            </button>
+                            <button onclick="deleteUserQr('${qr.id}')" class="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded text-xs flex items-center gap-1 border border-red-500/20 transition">
+                                <i class="ph ph-trash"></i> Excluir
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Add event listeners to checkboxes
+            document.querySelectorAll('.user-qr-checkbox').forEach(cb => {
+                cb.addEventListener('change', updateBulkActionsBar);
+            });
+        }
+
+        function updateBulkActionsBar() {
+            const selected = document.querySelectorAll('.user-qr-checkbox:checked');
+            const bar = document.getElementById('bulk-actions-bar');
+            const count = document.getElementById('selected-count-user');
+            
+            if (selected.length > 0) {
+                bar.classList.remove('hidden');
+                count.textContent = selected.length;
+            } else {
+                bar.classList.add('hidden');
+            }
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('.user-qr-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('select-all-user').checked = false;
+            updateBulkActionsBar();
+        }
+
+        function triggerBulkLogoUpload() {
+            document.getElementById('bulk-logo-upload').click();
+        }
+
+        async function handleLogoUpload(e, isBulk = false) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Check file size (max 1MB for base64 storage)
+            if (file.size > 1024 * 1024) {
+                alert("A imagem é muito grande. O limite é 1MB.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const base64 = event.target.result;
+                
+                if (isBulk) {
+                    const selectedIds = Array.from(document.querySelectorAll('.user-qr-checkbox:checked')).map(cb => cb.value);
+                    if (selectedIds.length === 0) return;
+
+                    if (!confirm(`Deseja aplicar esta logo em ${selectedIds.length} QR Codes?`)) return;
+
+                    const { error } = await window.supabaseClient
+                        .from('qrcodes')
+                        .update({ logo_url: base64 })
+                        .in('id', selectedIds);
+
+                    if (error) {
+                        window.qrx.modal.alert('Erro', "Erro ao atualizar em massa: " + error.message, 'error');
+                    } else {
+                        window.qrx.modal.alert('Sucesso', "Logos atualizadas com sucesso!", 'success');
+                        clearSelection();
+                        loadUserCodes();
+                    }
+                } else {
+                    setLogo(base64);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function openEditView(id) {
+            const qr = userCodes.find(c => c.id === id);
+            if (!qr) return;
+
+            currentQrId = qr.id;
+            currentQrCode = qr.code;
+            currentLogoUrl = qr.logo_url || '';
+            
+            document.getElementById('list-view').classList.add('hidden');
+            document.getElementById('edit-view').classList.remove('hidden');
+            
+            document.getElementById('qr-code-display').textContent = qr.code;
+            document.getElementById('scan-count').textContent = qr.scan_count || 0;
+            document.getElementById('target-title').value = qr.title || '';
+            
+            const shortUrl = `https://jpvdo.netlify.app/ativar/${qr.code}`;
+            document.getElementById('short-url-link').href = shortUrl;
+            document.getElementById('short-url-link').textContent = shortUrl;
+            
+            if (qr.target_url) {
+                document.getElementById('target-url').value = qr.target_url;
+                document.getElementById('current-url-display').classList.remove('hidden');
+                document.getElementById('current-url-link').href = qr.target_url;
+                document.getElementById('current-url-link').textContent = qr.target_url;
+            } else {
+                document.getElementById('target-url').value = '';
+                document.getElementById('current-url-display').classList.add('hidden');
+            }
+            
+            // Set logo in UI
+            setLogo(currentLogoUrl);
+            
+            updateStatusUI(qr.status);
+            renderQr();
+        }
+
+        function showListView() {
+            document.getElementById('edit-view').classList.add('hidden');
+            document.getElementById('list-view').classList.remove('hidden');
+            loadUserCodes(); // Refresh list
+        }
+
+        async function deleteUserQr(id) {
+            window.qrx.modal.confirm(
+                'Excluir Link?',
+                'Tem certeza que deseja excluir este link? Esta ação não pode ser desfeita e não liberará espaço no seu limite de 10 links.',
+                async () => {
+                    if (!window.supabaseClient) return;
+                    const { error } = await window.supabaseClient
+                        .from('qrcodes')
+                        .delete()
+                        .eq('id', id);
+
+                    if (error) {
+                        window.qrx.modal.alert('Erro', "Erro ao excluir: " + error.message, 'error');
+                    } else {
+                        await loadUserCodes();
+                    }
+                }
+            );
+        }
+
+        function copyShortUrl() {
+            const url = document.getElementById('short-url-link').href;
+            navigator.clipboard.writeText(url);
+            window.qrx.modal.alert('Sucesso', 'Link copiado com sucesso!', 'success');
+        }
+
+        function renderQr() {
+            if (!currentQrCode) return;
+            const canvas = document.getElementById('qr-canvas');
+            const shareUrl = `https://jpvdo.netlify.app/ativar/${currentQrCode}`;
+            const darkColor = document.getElementById('qr-color-dark').value;
+            const lightColor = document.getElementById('qr-color-light').value;
+            
+            QRCode.toCanvas(canvas, shareUrl, {
+                width: 512, // Use higher resolution for better logo quality
+                margin: 2,
+                color: {
+                    dark: darkColor,
+                    light: lightColor
+                }
+            }, function (error) {
+                if (error) {
+                    console.error(error);
+                    return;
+                }
+                
+                // Draw logo if exists
+                if (currentLogoUrl) {
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    img.src = currentLogoUrl;
+                    img.onload = function() {
+                        const logoSize = canvas.width * 0.22; // 22% of QR size
+                        const x = (canvas.width - logoSize) / 2;
+                        const y = (canvas.height - logoSize) / 2;
+                        
+                        // Draw white background for logo
+                        ctx.fillStyle = lightColor;
+                        ctx.fillRect(x - 5, y - 5, logoSize + 10, logoSize + 10);
+                        
+                        ctx.drawImage(img, x, y, logoSize, logoSize);
+                    };
+                }
+            });
+        }
+
+        // Customization events
+        document.getElementById('qr-color-dark').addEventListener('input', (e) => {
+            document.getElementById('qr-color-dark-hex').textContent = e.target.value;
+            renderQr();
+        });
+
+        document.getElementById('qr-color-light').addEventListener('input', (e) => {
+            document.getElementById('qr-color-light-hex').textContent = e.target.value;
+            renderQr();
+        });
+
+        document.getElementById('btn-download-qr').addEventListener('click', () => {
+            const canvas = document.getElementById('qr-canvas');
+            const link = document.createElement('a');
+            link.download = `qrcode-${currentQrCode}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // Modal Logic
+        function openCreateModal() {
+            document.getElementById('create-modal').classList.remove('hidden');
+            document.getElementById('new-target-url').value = '';
+            document.getElementById('new-custom-code').value = '';
+            document.getElementById('create-error').classList.add('hidden');
+        }
+
+        function closeCreateModal() {
+            document.getElementById('create-modal').classList.add('hidden');
+        }
+
+        function generateRandomCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < 5; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        document.getElementById('create-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('new-title').value.trim();
+            const targetUrl = document.getElementById('new-target-url').value;
+            let customCode = document.getElementById('new-custom-code').value.trim();
+            const btn = document.getElementById('btn-create-submit');
+            const errorEl = document.getElementById('create-error');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Criando...';
+            errorEl.classList.add('hidden');
+
+            // Check limit
+            const { data: profile } = await window.supabaseClient
+                .from('profiles')
+                .select('generated_count, max_links')
+                .eq('id', currentUser.id)
+                .single();
+            
+            const generatedCount = profile?.generated_count || 0;
+            const maxLinks = profile?.max_links || 10;
+
+            if (generatedCount >= maxLinks) {
+                errorEl.innerHTML = `Você atingiu o limite de ${maxLinks} links. <a href="https://wa.me/5562994581066?text=Ativar+mais+QrX" target="_blank" class="underline font-bold">Compre mais créditos aqui</a>.`;
+                errorEl.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = 'Criar Link';
+                return;
+            }
+
+            if (!customCode) {
+                customCode = generateRandomCode();
+            } else {
+                // Validate custom code (no spaces, special chars except - and _)
+                if (!/^[a-zA-Z0-9-_]+$/.test(customCode)) {
+                    errorEl.textContent = "O código deve conter apenas letras, números, hífens ou underlines.";
+                    errorEl.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.innerHTML = 'Criar Link';
+                    return;
+                }
+            }
+
+            // Check if code exists
+            const { data: existing } = await window.supabaseClient
+                .from('qrcodes')
+                .select('id')
+                .eq('code', customCode)
+                .single();
+
+            if (existing) {
+                errorEl.textContent = "Este código já está em uso. Escolha outro.";
+                errorEl.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = 'Criar Link';
+                return;
+            }
+
+            // Insert new code
+            const { error } = await window.supabaseClient
+                .from('qrcodes')
+                .insert([{ 
+                    code: customCode, 
+                    title: title,
+                    target_url: targetUrl, 
+                    owner_id: currentUser.id, 
+                    logo_url: DEFAULT_LOGO_URL,
+                    status: 'ativo' 
+                }]);
+
+            btn.disabled = false;
+            btn.innerHTML = 'Criar Link';
+
+            if (error) {
+                errorEl.textContent = "Erro ao criar: " + error.message;
+                errorEl.classList.remove('hidden');
+            } else {
+                // Increment generated_count
+                await window.supabaseClient
+                    .from('profiles')
+                    .update({ generated_count: generatedCount + 1 })
+                    .eq('id', currentUser.id);
+
+                closeCreateModal();
+                await loadUserCodes();
+            }
+        });
+
+        function updateStatusUI(status) {
+            const badge = document.getElementById('status-badge');
+            if (status === 'ativo') {
+                badge.className = 'flex items-center gap-1 text-sm font-medium badge-green';
+                badge.innerHTML = '<i class="ph ph-check-circle"></i> Ativo';
+            } else {
+                badge.className = 'flex items-center gap-1 text-sm font-medium text-slate-400';
+                badge.innerHTML = '<i class="ph ph-minus-circle"></i> Inativo';
+            }
+        }
+
+        document.getElementById('url-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('target-title').value.trim();
+            const url = document.getElementById('target-url').value;
+            const btn = document.getElementById('btn-save');
+            const msgEl = document.getElementById('save-msg');
+            
+            btn.disabled = true;
+            btn.textContent = "Salvando...";
+            msgEl.classList.add('hidden');
+
+            if (!window.supabaseClient) {
+                msgEl.textContent = "Erro de conexão com o banco de dados.";
+                msgEl.className = "text-sm text-center mt-2 text-red-400";
+                msgEl.classList.remove('hidden');
+                btn.disabled = false;
+                btn.textContent = "Salvar URL";
+                return;
+            }
+
+            const { error } = await window.supabaseClient
+                .from('qrcodes')
+                .update({ 
+                    title: title,
+                    target_url: url, 
+                    logo_url: currentLogoUrl,
+                    status: 'ativo' 
+                })
+                .eq('id', currentQrId);
+
+            btn.disabled = false;
+            btn.textContent = "Salvar URL";
+
+            if (error) {
+                msgEl.textContent = "Erro ao salvar: " + error.message;
+                msgEl.className = "text-sm text-center mt-2 text-red-400";
+            } else {
+                msgEl.textContent = "URL salva com sucesso!";
+                msgEl.className = "text-sm text-center mt-2 text-green-400";
+                updateStatusUI('ativo');
+                
+                document.getElementById('current-url-display').classList.remove('hidden');
+                document.getElementById('current-url-link').href = url;
+                document.getElementById('current-url-link').textContent = url;
+            }
+            msgEl.classList.remove('hidden');
+        });
+
+        initDashboard();
+    </script>
+</body>
+</html>

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QrX</title>
+    <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1">
+    <link rel="stylesheet" href="/src/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0F172A; color: #F8FAFC; }
+        .input-dark { background-color: #0F172A; border: 1px solid #334155; color: #F8FAFC; transition: border-color 0.2s; }
+        .input-dark:focus { outline: none; border-color: #F97316; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+    
+    <div class="w-full max-w-md bg-[#1E293B] rounded-2xl shadow-xl border border-slate-700 p-8">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center mb-4">
+                <img src="https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1" alt="QrX Logo" class="w-20 h-20 rounded-xl object-cover shadow-lg" onerror="this.src='https://lh3.googleusercontent.com/d/1YGVDdCDIBYtl9iyZMm1A19DIc7QrTcv1'; this.onerror=null;">
+            </div>
+            <p class="text-slate-400 text-sm mt-1">Gerencie seus redirecionamentos</p>
+        </div>
+
+        <!-- Login/Register Form -->
+        <div id="auth-section">
+            <div class="flex mb-6 border-b border-slate-700">
+                <button id="tab-login" class="flex-1 py-3 text-[#F97316] border-b-2 border-[#F97316] font-medium transition">Login</button>
+                <button id="tab-register" class="flex-1 py-3 text-slate-500 font-medium hover:text-slate-300 transition">Cadastro</button>
+            </div>
+
+            <form id="auth-form" class="space-y-4">
+                <div id="name-field" class="hidden">
+                    <label class="block text-sm text-slate-400 mb-1.5">Nome Completo</label>
+                    <input type="text" id="full_name" class="input-dark w-full rounded-lg px-4 py-2.5">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1.5">E-mail</label>
+                    <input type="email" id="email" required class="input-dark w-full rounded-lg px-4 py-2.5">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1.5">Senha</label>
+                    <input type="password" id="password" required class="input-dark w-full rounded-lg px-4 py-2.5">
+                </div>
+                <button type="submit" id="auth-submit" class="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-lg py-3 font-semibold mt-6 transition">Entrar</button>
+                <p id="auth-error" class="text-red-400 text-sm text-center hidden mt-2"></p>
+            </form>
+        </div>
+
+        <!-- OTP Verification Section -->
+        <div id="otp-section" class="hidden space-y-4">
+            <div class="text-center mb-6">
+                <h2 class="text-xl font-bold mb-2">Verifique seu E-mail</h2>
+                <p class="text-slate-400 text-sm">Enviamos um código de 8 dígitos para o seu e-mail.</p>
+            </div>
+            <form id="otp-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1.5">Código de Verificação</label>
+                    <input type="text" id="otp-code" maxlength="8" required class="input-dark w-full rounded-lg px-4 py-3 text-center tracking-[0.5em] font-mono text-xl" placeholder="12345678">
+                </div>
+                <button type="submit" id="otp-submit" class="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-lg py-3 font-semibold transition">Confirmar Código</button>
+                <button type="button" id="btn-resend-otp" class="block w-full text-[#F97316] text-sm mt-3 hover:underline text-center">Reenviar Código</button>
+                <button type="button" id="btn-back-to-login" class="block w-full text-slate-500 text-sm mt-4 hover:text-white text-center transition">Voltar para o Login</button>
+                <p id="otp-error" class="text-red-400 text-sm text-center hidden mt-2"></p>
+                <p id="otp-success" class="text-green-400 text-sm text-center hidden mt-2"></p>
+            </form>
+        </div>
+
+        <!-- Claim Section -->
+        <div id="claim-section" class="hidden space-y-6">
+            <div class="text-center">
+                <h2 class="text-xl font-bold mb-2">Reivindicar QR Code</h2>
+                <p class="text-slate-400 text-sm">Digite o código do seu QR Code ou use a câmera para escanear.</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <input type="text" id="claim-code" maxlength="5" class="input-dark w-full rounded-lg px-4 py-3 text-center tracking-widest font-mono text-2xl" placeholder="CÓDIGO">
+                </div>
+                <button type="button" id="btn-scan" class="w-full bg-[#0F172A] border border-slate-600 hover:border-slate-500 text-white rounded-lg py-3 font-medium flex items-center justify-center gap-2 transition">
+                    <i class="ph ph-camera text-xl"></i> Escanear com a Câmera
+                </button>
+                
+                <div id="scanner-container" class="hidden relative rounded-lg overflow-hidden border border-slate-700">
+                    <video id="video" class="w-full h-48 object-cover"></video>
+                    <canvas id="canvas" class="hidden"></canvas>
+                    <button type="button" id="btn-close-scan" class="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-full backdrop-blur-sm transition flex items-center justify-center w-8 h-8">
+                        <i class="ph ph-x"></i>
+                    </button>
+                </div>
+
+                <button type="button" id="btn-claim" class="w-full bg-[#F97316] hover:bg-[#EA580C] text-white rounded-lg py-3 font-semibold transition mt-4">Ativar QR Code</button>
+                <p id="claim-msg" class="text-sm text-center hidden mt-2"></p>
+            </div>
+            
+            <div class="pt-6 border-t border-slate-700 text-center">
+                <a href="/dashboard.html" class="text-[#F97316] text-sm hover:underline">Ir para o Dashboard</a>
+                <button type="button" onclick="logout()" class="block w-full text-slate-500 text-sm mt-4 hover:text-white transition">Sair da Conta</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+    <script>
+        let isLogin = true;
+        let pendingEmail = '';
+
+        // Check for claim code in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const claimCode = urlParams.get('claim');
+        const isInactive = urlParams.get('inactive') === 'true';
+
+        if (claimCode) {
+            document.getElementById('claim-code').value = claimCode;
+            document.getElementById('btn-claim').textContent = isInactive ? 'Ativar meu QR Code' : 'Reivindicar QR Code';
+            
+            const loginMsg = document.createElement('div');
+            loginMsg.className = 'bg-blue-900/30 border border-blue-800 text-blue-300 p-3 rounded-lg mb-4 text-sm text-center';
+            const actionText = isInactive ? 'ativar seu' : 'reivindicar o';
+            loginMsg.innerHTML = `Faça login ou cadastre-se para ${actionText} código <strong>${claimCode}</strong>`;
+            document.getElementById('auth-form').prepend(loginMsg);
+        }
+
+        document.getElementById('tab-login').addEventListener('click', () => {
+            isLogin = true;
+            document.getElementById('tab-login').className = "flex-1 py-3 text-[#F97316] border-b-2 border-[#F97316] font-medium transition";
+            document.getElementById('tab-register').className = "flex-1 py-3 text-slate-500 font-medium hover:text-slate-300 transition";
+            document.getElementById('name-field').classList.add('hidden');
+            document.getElementById('auth-submit').textContent = "Entrar";
+            document.getElementById('auth-error').classList.add('hidden');
+        });
+
+        document.getElementById('tab-register').addEventListener('click', () => {
+            isLogin = false;
+            document.getElementById('tab-register').className = "flex-1 py-3 text-[#F97316] border-b-2 border-[#F97316] font-medium transition";
+            document.getElementById('tab-login').className = "flex-1 py-3 text-slate-500 font-medium hover:text-slate-300 transition";
+            document.getElementById('name-field').classList.remove('hidden');
+            document.getElementById('auth-submit').textContent = "Cadastrar";
+            document.getElementById('auth-error').classList.add('hidden');
+        });
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const fullName = document.getElementById('full_name').value;
+            const errorEl = document.getElementById('auth-error');
+            const submitBtn = document.getElementById('auth-submit');
+            
+            errorEl.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Aguarde...";
+
+            try {
+                if (!window.supabaseClient) {
+                    throw new Error("Erro de conexão com o servidor. Por favor, recarregue a página e tente novamente.");
+                }
+
+                if (isLogin) {
+                    const { error } = await window.supabaseClient.auth.signInWithPassword({ email, password });
+                    if (error) {
+                        if (error.message.includes('Email not confirmed')) {
+                            pendingEmail = email;
+                            document.getElementById('auth-section').classList.add('hidden');
+                            document.getElementById('otp-section').classList.remove('hidden');
+                            throw new Error('Por favor, confirme seu e-mail com o código enviado.');
+                        }
+                        throw error;
+                    }
+                    checkAuth();
+                } else {
+                    const { error } = await window.supabaseClient.auth.signUp({
+                        email, password,
+                        options: { data: { full_name: fullName } }
+                    });
+                    if (error) throw error;
+                    
+                    pendingEmail = email;
+                    document.getElementById('auth-section').classList.add('hidden');
+                    document.getElementById('otp-section').classList.remove('hidden');
+                }
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = isLogin ? "Entrar" : "Cadastrar";
+            }
+        });
+
+        document.getElementById('otp-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = document.getElementById('otp-code').value;
+            const errorEl = document.getElementById('otp-error');
+            const submitBtn = document.getElementById('otp-submit');
+            
+            errorEl.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Verificando...";
+
+            try {
+                if (!window.supabaseClient) throw new Error("Erro de conexão");
+                const { data, error } = await window.supabaseClient.auth.verifyOtp({
+                    email: pendingEmail,
+                    token: token,
+                    type: 'signup'
+                });
+
+                if (error) throw error;
+                
+                // If successful, user is logged in
+                document.getElementById('otp-section').classList.add('hidden');
+                checkAuth();
+            } catch (err) {
+                errorEl.textContent = "Código inválido ou expirado.";
+                errorEl.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Confirmar Código";
+            }
+        });
+
+        document.getElementById('btn-resend-otp').addEventListener('click', async () => {
+            const errorEl = document.getElementById('otp-error');
+            const successEl = document.getElementById('otp-success');
+            const resendBtn = document.getElementById('btn-resend-otp');
+            
+            errorEl.classList.add('hidden');
+            successEl.classList.add('hidden');
+            resendBtn.disabled = true;
+            resendBtn.textContent = "Enviando...";
+
+            try {
+                if (!window.supabaseClient) throw new Error("Erro de conexão");
+                const { error } = await window.supabaseClient.auth.resend({
+                    type: 'signup',
+                    email: pendingEmail,
+                });
+
+                if (error) throw error;
+                
+                successEl.textContent = "Novo código enviado para seu e-mail!";
+                successEl.classList.remove('hidden');
+                
+                // Cooldown for resend button
+                let timeLeft = 60;
+                const interval = setInterval(() => {
+                    resendBtn.textContent = `Aguarde ${timeLeft}s para reenviar`;
+                    timeLeft--;
+                    if (timeLeft < 0) {
+                        clearInterval(interval);
+                        resendBtn.disabled = false;
+                        resendBtn.textContent = "Reenviar Código";
+                    }
+                }, 1000);
+
+            } catch (err) {
+                errorEl.textContent = "Erro ao reenviar: " + err.message;
+                errorEl.classList.remove('hidden');
+                resendBtn.disabled = false;
+                resendBtn.textContent = "Reenviar Código";
+            }
+        });
+
+        document.getElementById('btn-back-to-login').addEventListener('click', () => {
+            document.getElementById('otp-section').classList.add('hidden');
+            document.getElementById('auth-section').classList.remove('hidden');
+            document.getElementById('otp-code').value = '';
+        });
+
+        async function checkAuth() {
+            try {
+                if (!window.supabaseClient) return;
+                const user = await getCurrentUser();
+                if (user) {
+                    if (user.profile?.role === 'admin') {
+                        window.location.href = '/admin.html';
+                        return;
+                    }
+
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const claimCode = urlParams.get('claim');
+
+                    // If there is a claim code in URL, don't redirect to dashboard yet
+                    if (claimCode) {
+                        document.getElementById('auth-section').classList.add('hidden');
+                        document.getElementById('otp-section').classList.add('hidden');
+                        document.getElementById('claim-section').classList.remove('hidden');
+                        document.getElementById('claim-code').value = claimCode;
+                        return;
+                    }
+
+                    // Check if user already has a code
+                    const { data: codes } = await window.supabaseClient
+                        .from('qrcodes')
+                        .select('*')
+                        .eq('owner_id', user.id);
+                        
+                    if (codes && codes.length > 0) {
+                        window.location.href = '/dashboard.html';
+                    } else {
+                        document.getElementById('auth-section').classList.add('hidden');
+                        document.getElementById('otp-section').classList.add('hidden');
+                        document.getElementById('claim-section').classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                console.error("Error in checkAuth:", err);
+            }
+        }
+
+        // Scanner Logic
+        const video = document.getElementById('video');
+        const canvasElement = document.getElementById('canvas');
+        const canvas = canvasElement.getContext('2d');
+        let scanning = false;
+
+        document.getElementById('btn-scan').addEventListener('click', () => {
+            document.getElementById('scanner-container').classList.remove('hidden');
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
+                scanning = true;
+                video.srcObject = stream;
+                video.setAttribute("playsinline", true);
+                video.play();
+                requestAnimationFrame(tick);
+            }).catch(err => {
+                window.qrx.modal.alert('Erro de Câmera', "Erro ao acessar a câmera: " + err.message, 'error');
+                document.getElementById('scanner-container').classList.add('hidden');
+            });
+        });
+
+        document.getElementById('btn-close-scan').addEventListener('click', stopScan);
+
+        function stopScan() {
+            scanning = false;
+            document.getElementById('scanner-container').classList.add('hidden');
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        function tick() {
+            if (!scanning) return;
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvasElement.height = video.videoHeight;
+                canvasElement.width = video.videoWidth;
+                canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+                var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                var code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+                if (code) {
+                    let scannedText = code.data;
+                    // Extract last 5 chars assuming URL format like /r/ABCDE
+                    let extractedCode = scannedText.slice(-5); 
+                    document.getElementById('claim-code').value = extractedCode;
+                    stopScan();
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+
+        // Claim Logic
+        document.getElementById('btn-claim').addEventListener('click', async () => {
+            try {
+                if (!window.supabaseClient) {
+                    throw new Error("Erro de conexão. Recarregue a página.");
+                }
+                const code = document.getElementById('claim-code').value.trim();
+            const msgEl = document.getElementById('claim-msg');
+            msgEl.className = "text-sm text-center mt-2"; // reset classes
+            
+            if (code.length !== 5) {
+                msgEl.textContent = "O código deve ter exatamente 5 caracteres.";
+                msgEl.classList.add('text-red-400');
+                msgEl.classList.remove('hidden');
+                return;
+            }
+
+            const user = await getCurrentUser();
+            
+            const { data: qrData, error: qrError } = await window.supabaseClient
+                .from('qrcodes')
+                .select('*')
+                .eq('code', code)
+                .single();
+
+            if (qrError || !qrData) {
+                msgEl.textContent = "Código inválido ou não encontrado.";
+                msgEl.classList.add('text-red-400');
+                msgEl.classList.remove('hidden');
+                return;
+            }
+
+            // Se for um código inativo que já tem dono
+            if (qrData.status === 'inativo') {
+                if (qrData.owner_id !== user.id) {
+                    msgEl.textContent = "Este código pertence a outro usuário e está inativo.";
+                    msgEl.classList.add('text-red-400');
+                    msgEl.classList.remove('hidden');
+                    return;
+                }
+                
+                // Se for o dono, redireciona para o dashboard para ele ativar
+                msgEl.textContent = "Redirecionando para o painel de edição...";
+                msgEl.classList.add('text-green-400');
+                msgEl.classList.remove('hidden');
+                setTimeout(() => window.location.href = '/dashboard.html', 1000);
+                return;
+            }
+
+            if (qrData.status !== 'disponivel') {
+                msgEl.textContent = "Este código já foi reivindicado.";
+                msgEl.classList.add('text-red-400');
+                msgEl.classList.remove('hidden');
+                return;
+            }
+
+            const { error: updateError } = await window.supabaseClient
+                .from('qrcodes')
+                .update({ owner_id: user.id, status: 'inativo' })
+                .eq('id', qrData.id);
+
+            if (updateError) {
+                msgEl.textContent = "Erro ao reivindicar: " + updateError.message;
+                msgEl.classList.add('text-red-400');
+            } else {
+                msgEl.textContent = "Código reivindicado com sucesso!";
+                msgEl.classList.add('text-green-400');
+                setTimeout(() => window.location.href = '/dashboard.html', 1500);
+            }
+            msgEl.classList.remove('hidden');
+            } catch (err) {
+                const msgEl = document.getElementById('claim-msg');
+                msgEl.textContent = err.message || "Erro ao reivindicar código.";
+                msgEl.className = "text-sm text-center mt-2 text-red-400";
+                msgEl.classList.remove('hidden');
+            }
+        });
+
+        checkAuth();
+    </script>
+</body>
+</html>

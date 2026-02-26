@@ -1,0 +1,7 @@
+{
+  "name": "QRx",
+  "description": "Sistema de Gerenciamento de QR Codes Dinâmicos com Supabase e Vanilla JS.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
